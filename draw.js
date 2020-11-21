@@ -1,10 +1,11 @@
 
 window.onload = function() {
-    const BOARD_SIZE = 811;
     const PADDING = 10;
-    const OUTER_PADDING = 10;
+    const OUTER_PADDING = 8;
     const LINE_THICKNESS = 1;
     const DIMENSIONS_NUMBER = 40;
+
+    const SCALE = 19;
 
     const COLOR_OBSTACLE = '#131313';
     const COLOR_START = '#6fa739';
@@ -13,12 +14,8 @@ window.onload = function() {
     const COLOR_REGULAR = '#ffffff';
     const COLOR_SHORTEST_PATH = '#0db787';
 
-    const INFINITY_COST = 999;
+    const INFINITY_COST = 999999;
     const REGULAR_COST = 1;
-
-
-    var SPACE_FOR_CELLS = 0;
-    var SCALE = calculcateScale(DIMENSIONS_NUMBER);
 
     var canvas = document.getElementById("canvas");
     canvas.height = 850;
@@ -35,9 +32,19 @@ window.onload = function() {
         'IDLE': 4
     };
 
+    const AVAILABLE_ALGORITHMS = {
+        'DIJKSTRA': 0,
+        'A_STAR': 1
+    };
+
+    let SELECTED_ALGORITHM = AVAILABLE_ALGORITHMS.A_STAR;
+
+    let DESTINATION_VERTEX_COORDINATES = {
+        x: null,
+        y: null
+    }
+
     var currentMode = MODES.IDLE;
-
-
 
     document.getElementById('set-obstacles-button').onclick = function() {
         currentMode = MODES.OBSTACLES;
@@ -59,81 +66,116 @@ window.onload = function() {
 
     document.getElementById('canvas').onclick = function(event) {
         if (currentMode !== MODES.COMPUTING) {
-            let xCor = event.clientX;
-            let yCor = event.clientY;
 
-            if (xCor > 780 || yCor > 780) return;
+            let gridPoint = resolveGridPointFromClickEvent(event);
 
-            let xIndex = 0;
-            let yIndex = 0;
-
-            for (var x = 0; x <= DIMENSIONS_NUMBER; x++) {
-                let minBoundaryX = PADDING + OUTER_PADDING + x * SPACE_FOR_CELLS/DIMENSIONS_NUMBER;
-                let maxBoundaryX = minBoundaryX + SPACE_FOR_CELLS/DIMENSIONS_NUMBER;
-
-                if (xCor >= minBoundaryX && xCor <= maxBoundaryX) {
-                    xIndex = x;
-                }
-            }
-
-            for (var y = 0; y <= DIMENSIONS_NUMBER; y++) {
-                let minBoundaryY = PADDING + OUTER_PADDING + y * SPACE_FOR_CELLS/DIMENSIONS_NUMBER;
-                let maxBoundaryY = minBoundaryY + SPACE_FOR_CELLS/DIMENSIONS_NUMBER;
-
-                if (yCor >= minBoundaryY && yCor <= maxBoundaryY) {
-                    yIndex = y;
-                }
-            }
-
-            if (currentMode === MODES.OBSTACLES) {
-                setObstacle(xIndex,yIndex);
-            }
             if (currentMode === MODES.DESTINATION_POINT) {
-                setDestination(xIndex,yIndex);
+                setDestination(gridPoint.x, gridPoint.y);
             }
             if (currentMode === MODES.STARTING_POINT) {
-                setStartingPoint(xIndex,yIndex);
+                setStartingPoint(gridPoint.x, gridPoint.y);
             }
         }
     }
 
+    function resolveGridPointFromClickEvent(clickEvent)
+    {
+        let xCor = clickEvent.clientX;
+        let yCor = clickEvent.clientY;
+        if (!isClickCoordinateInsideCanvas(xCor, yCor)) return;
+
+        let xIndex = 0;
+        let yIndex = 0;
+
+        for (var x = 0; x <= DIMENSIONS_NUMBER; x++) {
+            let minBoundaryX = OUTER_PADDING + PADDING + (x * SCALE) + (x+1) * LINE_THICKNESS;
+            let maxBoundaryX = minBoundaryX + SCALE;
+
+            if (xCor >= minBoundaryX && xCor <= maxBoundaryX) {
+                xIndex = x;
+            }
+        }
+
+        for (var y = 0; y <= DIMENSIONS_NUMBER; y++) {
+            let minBoundaryY = OUTER_PADDING + PADDING + (y * SCALE) + (y+1) * LINE_THICKNESS;
+            let maxBoundaryY = minBoundaryY + SCALE;
+
+            if (yCor >= minBoundaryY && yCor <= maxBoundaryY) {
+                yIndex = y;
+            }
+        }
+
+        return {
+            x: xIndex,
+            y: yIndex,
+        }
+    }
+
+
+    canvas.addEventListener('mousemove', handleMouseMove, false);
+    canvas.addEventListener('mousedown', handleMouseDown, false);
+    canvas.addEventListener('mouseup', handleMouseUp, false);
+
+    let clicked = false;
+    function handleMouseDown(event) {
+        clicked = true;
+    }
+
+    function isClickCoordinateInsideCanvas(clientX, clientY)
+    {
+        let boundary = OUTER_PADDING + PADDING + DIMENSIONS_NUMBER * SCALE + DIMENSIONS_NUMBER * LINE_THICKNESS;
+        return !(clientX > boundary || clientY > boundary);
+    }
+
+    function handleMouseMove(event)
+    {
+        if (clicked) {
+            if (currentMode !== MODES.COMPUTING) {
+                let gridPoint = resolveGridPointFromClickEvent(event);
+
+                if (currentMode === MODES.OBSTACLES) {
+                    setObstacle(gridPoint.x, gridPoint.y);
+                }
+            }
+
+        }
+    }
+
+    function handleMouseUp(event)
+    {
+        clicked = false;
+    }
 
 
     function drawBoard(){
-        for (var x = 0; x <= SPACE_FOR_CELLS; x += SCALE) {
-            context.moveTo(x + PADDING + LINE_THICKNESS, PADDING);
-            context.lineTo(x + PADDING + LINE_THICKNESS, SPACE_FOR_CELLS + PADDING);
+        for (var x = 0; x <= DIMENSIONS_NUMBER; x++) {
+            context.moveTo((PADDING + (x * SCALE)) + x * LINE_THICKNESS, PADDING);
+            context.lineTo((PADDING + (x * SCALE)) + x * LINE_THICKNESS, PADDING + (DIMENSIONS_NUMBER * SCALE) + LINE_THICKNESS * (DIMENSIONS_NUMBER + 1));
         }
 
-        for (var y = 0; y <= SPACE_FOR_CELLS; y += SCALE) {
-            context.moveTo(PADDING, LINE_THICKNESS + y + PADDING);
-            context.lineTo(SPACE_FOR_CELLS + PADDING, LINE_THICKNESS + y + PADDING);
+        for (var y = 0; y <= DIMENSIONS_NUMBER; y++) {
+            context.moveTo(PADDING, (PADDING + (y * SCALE)) + y * LINE_THICKNESS);
+            context.lineTo(PADDING + (DIMENSIONS_NUMBER * SCALE) + LINE_THICKNESS * (DIMENSIONS_NUMBER + 1), (PADDING + (y * SCALE)) + y * LINE_THICKNESS);
         }
 
         context.strokeStyle = "black";
         context.stroke();
     }
 
-    function calculcateScale(dimensionsNumber)
-    {
-        SPACE_FOR_CELLS = BOARD_SIZE - PADDING - ((dimensionsNumber + 1) * LINE_THICKNESS);
-        return SPACE_FOR_CELLS/dimensionsNumber;
-    }
-
     function paintCell(positionX, positionY, color)
     {
-        let calculatedPositionX = PADDING + positionX * SCALE + LINE_THICKNESS;
-        let calculatedPositionY = PADDING  + positionY * SCALE + LINE_THICKNESS;
+        let calculatedPositionX = PADDING + positionX * SCALE + LINE_THICKNESS * (positionX + 1);
+        let calculatedPositionY = PADDING  + positionY * SCALE + LINE_THICKNESS * (positionY + 1);
 
         context.beginPath();
         context.fillStyle = color;
-        context.fillRect(calculatedPositionX + LINE_THICKNESS, calculatedPositionY + LINE_THICKNESS, SCALE - LINE_THICKNESS*2, SCALE - LINE_THICKNESS*2);
+        context.fillRect(calculatedPositionX, calculatedPositionY, SCALE - LINE_THICKNESS, SCALE - LINE_THICKNESS);
         context.stroke();
     }
 
-    function createNode(x = null, y = null, isDestination = false, isStartingPoint = false, cost = REGULAR_COST)
+    function createVertex(x = null, y = null, isDestination = false, isStartingPoint = false, cost = REGULAR_COST)
     {
-        let node = {
+        let vertex = {
             visited: false,
             cost: cost,
             isDestination: isDestination,
@@ -141,61 +183,67 @@ window.onload = function() {
             x: x,
             y: y
         };
-        return JSON.parse(JSON.stringify(node));
+        return JSON.parse(JSON.stringify(vertex));
     }
 
-    function initNodes (unvisitedNodes)
+    function initVertices (unvisitedVertices)
     {
         for (var x = 0; x < DIMENSIONS_NUMBER; x++) {
             for (var y = 0; y < DIMENSIONS_NUMBER; y++) {
-                unvisitedNodes.push(createNode(x, y, false, false));
+                let key = computeKey(x,y);
+                unvisitedVertices[key] = createVertex(x, y, false, false);
             }
         }
+    }
+
+    function computeKey(x,y) {
+        return "x:" + x + "y:" + y;
     }
 
     drawBoard();
 
-    let unvisitedNodes = [];
-    initNodes(unvisitedNodes);
+    let unvisitedVertices = [];
+    initVertices(unvisitedVertices);
 
     document.getElementById('debug-button').onclick = function() {
-        if (unvisitedNodes) {
-            console.log(unvisitedNodes);
+        if (unvisitedVertices) {
+            console.log(unvisitedVertices);
         }
     }
 
     function setObstacle (x,y) {
-        unvisitedNodes.forEach(function (node, index) {
-            if (node.x === x && node.y === y) {
-                unvisitedNodes[index] = createNode(x,y,false,false, INFINITY_COST);
-            }
-        });
+        let key = computeKey(x,y);
+        unvisitedVertices[key] = createVertex(x,y,false,false, INFINITY_COST);
         paintCell(x,y, COLOR_OBSTACLE);
     }
 
     function setDestination (xIndex,yIndex) {
-        unvisitedNodes.forEach(function (node, index) {
-            if (node.isDestination && node.x !== xIndex && node.y !== yIndex) { //reset old destination
-                unvisitedNodes[index] = createNode(node.x, node.y, false, false, REGULAR_COST);
-                paintCell(node.x, node.y, COLOR_REGULAR);
+        for (let key in unvisitedVertices) {
+            let vertex = unvisitedVertices[key];
+            if (vertex.isDestination && !(vertex.x === xIndex && vertex.y === yIndex)) {
+                unvisitedVertices[key] = createVertex(vertex.x, vertex.y, false, false, REGULAR_COST); //reset old destination
+                paintCell(vertex.x, vertex.y, COLOR_REGULAR);
             }
-            if (node.x === xIndex && node.y === yIndex) {
-                unvisitedNodes[index] = createNode(xIndex, yIndex, true, false, REGULAR_COST);
-            }
-        });
+        }
+
+        let key = computeKey(xIndex, yIndex);
+        unvisitedVertices[key] = createVertex(xIndex, yIndex, true, false, REGULAR_COST);
+        DESTINATION_VERTEX_COORDINATES.x = xIndex;
+        DESTINATION_VERTEX_COORDINATES.y = yIndex;
         paintCell(xIndex,yIndex, COLOR_DESTINATION);
     }
 
     function setStartingPoint (xIndex,yIndex) {
-        unvisitedNodes.forEach(function (node, index) {
-            if (node.isStartingPoint && node.x !== xIndex && node.y !== yIndex) { //reset old starting point
-                unvisitedNodes[index] = createNode(node.x, node.y, false, false, REGULAR_COST);
-                paintCell(node.x, node.y, COLOR_REGULAR);
+        for (let key in unvisitedVertices) {
+            let vertex = unvisitedVertices[key];
+            if (vertex.isStartingPoint && !(vertex.x === xIndex && vertex.y === yIndex)) {
+                unvisitedVertices[key] = createVertex(vertex.x, vertex.y, false, false, REGULAR_COST); //reset old starting point
+                paintCell(vertex.x, vertex.y, COLOR_REGULAR);
             }
-            if (node.x === xIndex && node.y === yIndex) {
-                unvisitedNodes[index] = createNode(xIndex, yIndex, false, true, REGULAR_COST);
-            }
-        });
+        }
+
+        let key = computeKey(xIndex, yIndex);
+        unvisitedVertices[key] = createVertex(xIndex, yIndex, false, true, REGULAR_COST);
         paintCell(xIndex,yIndex, COLOR_START);
     }
 
@@ -204,10 +252,11 @@ window.onload = function() {
         let isStartSet = false;
         let isDestSet = false;
 
-        unvisitedNodes.forEach(function (node) {
-            if (node.isStartingPoint) isStartSet = true;
-            if (node.isDestination) isDestSet = true;
-        });
+        for (let key in unvisitedVertices) {
+            let vertex = unvisitedVertices[key];
+            if (vertex.isStartingPoint) isStartSet = true;
+            if (vertex.isDestination) isDestSet = true;
+        }
 
         if (isDestSet && isStartSet) {
             currentMode = MODES.COMPUTING;
@@ -224,54 +273,55 @@ window.onload = function() {
         }
     }
 
-    let heap = [];
-    function initHeap(heap)
+    let heap = {};
+    function initMinDistanceHeap(heap)
     {
-        unvisitedNodes.forEach(function(node) {
-            if (node.isStartingPoint) {
-                heap.push(
-                    {
-                        node: node,
-                        shortestDistanceFromStart: 0,
-                        previousNode: null,
-                    }
-                )
+        for (let key in unvisitedVertices) {
+            let vertex = unvisitedVertices[key];
+            if (vertex.isStartingPoint) {
+                heap[key] =  {
+                    vertex: vertex,
+                    shortestDistanceFromStart: 0,
+                    previousVertex: null,
+                };
             } else {
-                heap.push(
-                    {
-                        node: node,
-                        shortestDistanceFromStart: INFINITY_COST,
-                        previousNode: null,
-                    }
-                )
+                heap[key] = {
+                    vertex: vertex,
+                    shortestDistanceFromStart: INFINITY_COST,
+                    previousVertex: null,
+                };
             }
-        });
+        }
     }
 
     function findPath() {
-        initHeap(heap);
-        let currentNode = getRootNodeReference();
-
+        if (!validateGrid()) {
+            alert('Some of the checks went wrong, check console for more details - the page will be refreshed');
+            window.location.reload();
+        }
+        initMinDistanceHeap(heap);
+        let currentVertex = getRootVertexReference();
         let timeout = 0;
         while (true) {
             timeout++;
-            let unvisitedNeighbours = getCurrentNodeUnvisitedNeighbours(currentNode.x, currentNode.y);
-            calculateTentativeDistances(currentNode, unvisitedNeighbours);
 
-            if (currentNode.isDestination) {
-                let shortestPathDistance = getHeapMapReference(currentNode.x, currentNode.y).shortestDistanceFromStart;
-                setTimeout(drawShortestPath, timeout * 10, currentNode);
+            let unvisitedNeighbours = getCurrentVertexUnvisitedNeighbours(currentVertex.x, currentVertex.y);
+            calculateTentativeDistances(currentVertex, unvisitedNeighbours);
+
+            if (currentVertex.isDestination) {
+                let shortestPathDistance = getMinDistanceHeapVertex(currentVertex.x, currentVertex.y).shortestDistanceFromStart;
+                setTimeout(drawShortestPath, timeout * 10, currentVertex);
                 setTimeout(appendShortestPathResult, (timeout + 1) * 10, shortestPathDistance);
                 break;
             }
 
-            currentNode.visited = true;
-            if (!currentNode.isStartingPoint) {
-                setTimeout(paintCell, timeout * 10, currentNode.x, currentNode.y, COLOR_PATH);
+            currentVertex.visited = true;
+            if (!currentVertex.isStartingPoint) {
+                setTimeout(paintCell, timeout * 10, currentVertex.x, currentVertex.y, COLOR_PATH);
             }
 
-            removeNodeFromUnvisited(currentNode);
-            currentNode = selectNextToVisit();
+            removeVertexFromUnvisited(currentVertex);
+            currentVertex = selectNextToVisit();
         }
     }
 
@@ -281,53 +331,80 @@ window.onload = function() {
         div.innerHTML += Math.round(shortestPath * 100) / 100;
     }
 
-    function drawShortestPath(destinationNode)
+    function drawShortestPath(destinationVertex)
     {
-        let node = destinationNode;
+        let vertex = destinationVertex;
         let timeout = 0;
-        while (!node.isStartingPoint) {
+        while (!vertex.isStartingPoint) {
             timeout++;
-            let heatMap = getHeapMapReference(node.x, node.y);
-            let previousNode = heatMap.previousNode;
-            if (!previousNode.isStartingPoint) {
-                setTimeout(paintCell, timeout * 10, previousNode.x, previousNode.y, COLOR_SHORTEST_PATH);
+            let minDistanceVertex = getMinDistanceHeapVertex(vertex.x, vertex.y);
+            let previousVertex = minDistanceVertex.previousVertex;
+            if (!previousVertex.isStartingPoint) {
+                setTimeout(paintCell, timeout * 10, previousVertex.x, previousVertex.y, COLOR_SHORTEST_PATH);
             }
-            node = previousNode;
+            vertex = previousVertex;
         }
     }
 
     function selectNextToVisit() {
-        let heapMapWithMinDist = heap[0];
-        heap.forEach(function(heapMap) {
-            let dist = heapMap.shortestDistanceFromStart;
-            if (dist < heapMapWithMinDist.shortestDistanceFromStart && !heapMap.node.visited && heapMap.node.cost < INFINITY_COST) {
-                heapMapWithMinDist = heapMap;
+        let heapMapWithMinDist = null;
+
+        for (let key in heap) {
+            if (!heap[key].vertex.visited && heap[key].vertex.cost < INFINITY_COST) {
+                heapMapWithMinDist = heap[key];
             }
-        });
-        //handle case when all visited
-        return heapMapWithMinDist.node;
+        }
+
+        for (let key in heap) {
+            let dist = heap[key].shortestDistanceFromStart;
+            if (dist < heapMapWithMinDist.shortestDistanceFromStart && !heap[key].vertex.visited && heap[key].vertex.cost < INFINITY_COST) {
+                heapMapWithMinDist = heap[key];
+            }
+        }
+
+        return heapMapWithMinDist.vertex;
     }
 
-    function calculateTentativeDistances(currentNode, unvisitedNeighbours)
+    function calculateTentativeDistances(currentVertex, unvisitedNeighbours)
     {
         unvisitedNeighbours.forEach(function (unvisitedNeighbour) {
-            let distance = calculateDistanceFromRootNode(currentNode, unvisitedNeighbour);
-            let heatMapForUnvisitedNeighbour = getHeapMapReference(unvisitedNeighbour.x, unvisitedNeighbour.y);
+            let distance = calculateDistanceFromRootVertex(currentVertex, unvisitedNeighbour);
 
-            if (distance < heatMapForUnvisitedNeighbour.shortestDistanceFromStart) {
-                heatMapForUnvisitedNeighbour.shortestDistanceFromStart = distance;
-                heatMapForUnvisitedNeighbour.previousNode = currentNode;
+            if (SELECTED_ALGORITHM === AVAILABLE_ALGORITHMS.A_STAR) {
+                let distanceToDestinationVertex = calculateDistanceToDestinationVertex(currentVertex);
+                distance += distanceToDestinationVertex;
+            }
+
+            let minDistanceVertexForUnvisitedNeighbour = getMinDistanceHeapVertex(unvisitedNeighbour.x, unvisitedNeighbour.y);
+
+            if (distance < minDistanceVertexForUnvisitedNeighbour.shortestDistanceFromStart) {
+                minDistanceVertexForUnvisitedNeighbour.shortestDistanceFromStart = distance;
+                minDistanceVertexForUnvisitedNeighbour.previousVertex = currentVertex;
             }
         });
     }
 
-    function calculateDistanceFromRootNode(currentNode, consideredNode) {
-        let distanceFromPreviousNode = Math.sqrt(Math.pow((consideredNode.x - currentNode.x),2) + Math.pow((consideredNode.y - currentNode.y),2));
-        let heapMapForCurrentNode = getHeapMapReference(currentNode.x, currentNode.y);
-        return heapMapForCurrentNode.shortestDistanceFromStart + distanceFromPreviousNode;
+    function calculateDistanceFromRootVertex(currentVertex, consideredVertex) {
+        let distanceFromPreviousVertex = calculateEuclideanDistanceBetweenVertices(consideredVertex, currentVertex);
+        let heapMapForCurrentVertex = getMinDistanceHeapVertex(currentVertex.x, currentVertex.y);
+        return heapMapForCurrentVertex.shortestDistanceFromStart + distanceFromPreviousVertex;
     }
 
-    function getCurrentNodeUnvisitedNeighbours(x, y) {
+    function calculateDistanceToDestinationVertex(currentVertex) {
+        let destinationVertex = getVertexReference(
+            DESTINATION_VERTEX_COORDINATES.x,
+            DESTINATION_VERTEX_COORDINATES.y
+        );
+
+        return calculateEuclideanDistanceBetweenVertices(currentVertex, destinationVertex);
+    }
+
+    function calculateEuclideanDistanceBetweenVertices(vertexA, vertexB) {
+        return Math.sqrt(Math.pow((vertexA.x - vertexB.x),2) + Math.pow((vertexA.y - vertexB.y),2));
+    }
+
+
+    function getCurrentVertexUnvisitedNeighbours(x, y) {
         let neighboursCoordinates = [
             {
                 "x": x - 1,
@@ -366,10 +443,10 @@ window.onload = function() {
         let unvisitedNeighbours = [];
         neighboursCoordinates.forEach(function (cords) {
             if (isCoordinateValid(cords.x) && isCoordinateValid(cords.y)) {
-                let node = getNodeReference(cords.x, cords.y);
-                if (node !== null && node !== undefined && !node.visited) {
+                let vertex = getVertexReference(cords.x, cords.y);
+                if (vertex !== null && vertex !== undefined && !vertex.visited) {
                     unvisitedNeighbours.push(
-                        getNodeReference(cords.x, cords.y),
+                        getVertexReference(cords.x, cords.y),
                     );
                 }
             }
@@ -381,39 +458,59 @@ window.onload = function() {
         return cord >= 0 && cord <= 39;
     }
 
-    function removeNodeFromUnvisited(node)
+    function removeVertexFromUnvisited(vertex)
     {
-        for(var i = 0; i < unvisitedNodes.length; i++) {
-            if (unvisitedNodes[i].x === node.x && unvisitedNodes[i].y === node.y) {
-                unvisitedNodes.splice(i, 1);
+        let key = computeKey(vertex.x, vertex.y);
+        delete unvisitedVertices[key];
+    }
+
+    function getVertexReference(x, y) {
+        let key = computeKey(x,y);
+        return unvisitedVertices[key];
+    }
+
+    function getRootVertexReference() {
+        for (let key in unvisitedVertices) {
+            let vertex = unvisitedVertices[key];
+            if (vertex.isStartingPoint) {
+                return vertex;
             }
         }
     }
 
-    function getNodeReference(x, y) {
-        for(var i = 0; i < unvisitedNodes.length; i++) {
-            if (unvisitedNodes[i].x === x && unvisitedNodes[i].y === y) {
-                return unvisitedNodes[i];
-            }
-        }
-
-    }
-
-    function getRootNodeReference() {
-        for(var i = 0; i < unvisitedNodes.length; i++) {
-            if (unvisitedNodes[i].isStartingPoint) {
-                return unvisitedNodes[i];
-            }
-        }
-    }
-
-    function getHeapMapReference(x, y)
+    function getMinDistanceHeapVertex(x, y)
     {
-        for(var i = 0; i < heap.length; i++) {
-            if (heap[i].node.x === x && heap[i].node.y === y) {
-                return heap[i];
-            }
+        let key = computeKey(x,y);
+        return heap[key];
+    }
+
+    function validateGrid()
+    {
+        let isValid = true;
+        if (Object.keys(unvisitedVertices).length !== DIMENSIONS_NUMBER * DIMENSIONS_NUMBER) {
+            console.log('Grid dimensions check failed')
+            isValid = false;
         }
+
+        let startingPointsCount = 0;
+        let destinationPointsCount = 0
+
+        for (let key in unvisitedVertices) {
+            if (unvisitedVertices[key].isStartingPoint) startingPointsCount++
+            if (unvisitedVertices[key].isDestination) destinationPointsCount++
+        }
+
+        if (startingPointsCount !== 1) {
+            isValid = false;
+            console.log('Invalid starting points count');
+        }
+
+        if (destinationPointsCount !== 1)
+        {
+            isValid = false;
+            console.log('Invalid destination points count');
+        }
+        return isValid;
     }
 };
 
