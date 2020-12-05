@@ -64,6 +64,25 @@ window.onload = function() {
         }
     }
 
+    document.getElementById('dijkstra').onclick = function() {
+        document.getElementById('a-star').checked = false;
+        this.checked = true;
+        SELECTED_ALGORITHM = AVAILABLE_ALGORITHMS.DIJKSTRA;
+    }
+
+    document.getElementById('a-star').onclick = function() {
+        document.getElementById('dijkstra').checked = false;
+        this.checked = true;
+        SELECTED_ALGORITHM = AVAILABLE_ALGORITHMS.A_STAR;
+    }
+
+    function renderSelectedAlgorithm() {
+        let elementId = SELECTED_ALGORITHM === AVAILABLE_ALGORITHMS.A_STAR ? 'a-star' : 'dijkstra';
+        document.getElementById(elementId).click();
+    }
+
+    renderSelectedAlgorithm();
+
     document.getElementById('canvas').onclick = function(event) {
         if (currentMode !== MODES.COMPUTING) {
 
