@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Page Title</title>
+    <script src="index.js" type="text/javascript"></script>
+</head>
+<body>
+
+<div id="algo-select" style="position: absolute; margin-left: 900px; margin-top: 100px;">
+    <h2>Select algorithm:</h2>
+    <input type="radio" id="a-star" name="a-star" value="A_STAR">
+    <label for="a-star">A*</label><br>
+    <input type="radio" id="dijkstra" name="dijkstra" value="DIJKSTRA">
+    <label for="dijkstra">DIJKSTRA</label><br>
+</div>
+
+<div id="result" style="position: absolute; margin-left: 900px; margin-top: 300px; font-size: 40px;">
+Computed shortest path:
+</div>
+<div class="wrapper">
+<canvas id="canvas"></canvas>
+
+<div class="buttons-panel">
+    <button class="button-mode" id="set-obstacles-button">DRAW OBSTACLES</button>
+    <button class="button-mode" id="set-start-button">SET STARTING POINT</button>
+    <button class="button-mode" id="set-destination-button">SET DESTINATION POINT</button>
+    <button class="button-mode" id="start-button">START</button>
+    <button class="button-debug" id="debug-button">DEBUG LOG</button>
+</div>
+</div>
+</body>
+</html>
+
