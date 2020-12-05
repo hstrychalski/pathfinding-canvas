@@ -44,7 +44,7 @@ window.onload = function() {
         y: null
     }
 
-    var currentMode = MODES.IDLE;
+    let currentMode = MODES.IDLE;
 
     document.getElementById('set-obstacles-button').onclick = function() {
         currentMode = MODES.OBSTACLES;
@@ -278,18 +278,14 @@ window.onload = function() {
     {
         for (let key in unvisitedVertices) {
             let vertex = unvisitedVertices[key];
+            heap[key] = {
+                vertex: vertex,
+                shortestDistanceFromStart: INFINITY_COST,
+                previousVertex: null,
+            };
+
             if (vertex.isStartingPoint) {
-                heap[key] =  {
-                    vertex: vertex,
-                    shortestDistanceFromStart: 0,
-                    previousVertex: null,
-                };
-            } else {
-                heap[key] = {
-                    vertex: vertex,
-                    shortestDistanceFromStart: INFINITY_COST,
-                    previousVertex: null,
-                };
+                heap[key].shortestDistanceFromStart = 0
             }
         }
     }
@@ -300,16 +296,22 @@ window.onload = function() {
             window.location.reload();
         }
         initMinDistanceHeap(heap);
-        let currentVertex = getRootVertexReference();
+        let rootVertexReference = getRootVertexReference();
+        let currentVertex = rootVertexReference;
         let timeout = 0;
         while (true) {
-            timeout++;
 
+            timeout++;
             let unvisitedNeighbours = getCurrentVertexUnvisitedNeighbours(currentVertex.x, currentVertex.y);
             calculateTentativeDistances(currentVertex, unvisitedNeighbours);
 
             if (currentVertex.isDestination) {
                 let shortestPathDistance = getMinDistanceHeapVertex(currentVertex.x, currentVertex.y).shortestDistanceFromStart;
+
+                if (SELECTED_ALGORITHM === AVAILABLE_ALGORITHMS.A_STAR) {
+                    shortestPathDistance = calculateShortestPathDistanceAStar(currentVertex);
+                }
+
                 setTimeout(drawShortestPath, timeout * 10, currentVertex);
                 setTimeout(appendShortestPathResult, (timeout + 1) * 10, shortestPathDistance);
                 break;
@@ -511,6 +513,26 @@ window.onload = function() {
             console.log('Invalid destination points count');
         }
         return isValid;
+    }
+
+    /**
+     * Traverse back to the starting vertex and subtract heuristic value to get real path length
+     *
+     * @param destinationVertex
+     */
+    function calculateShortestPathDistanceAStar(destinationVertex)
+    {
+        let heapMapForCurrent = getMinDistanceHeapVertex(destinationVertex.x, destinationVertex.y);
+        let shortestDistance = heapMapForCurrent.shortestDistanceFromStart;
+
+        do {
+            let previousVertex = heapMapForCurrent.previousVertex;
+            let euclideanDistanceFromVertexToDestination = calculateEuclideanDistanceBetweenVertices(previousVertex, destinationVertex);
+            shortestDistance -= euclideanDistanceFromVertexToDestination;
+            heapMapForCurrent = getMinDistanceHeapVertex(previousVertex.x, previousVertex.y);
+        } while (!heapMapForCurrent.vertex.isStartingPoint)
+
+        return shortestDistance;
     }
 };
 
